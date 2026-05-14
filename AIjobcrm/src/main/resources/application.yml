@@ -1,0 +1,68 @@
+spring:
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: programtests120@gmail.com
+    password: ${GMAIL_APP_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+
+  datasource:
+    url: jdbc:postgresql://localhost:5433/jobcrm_db
+    username: jobcrm
+    password: jobcrm_pass
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          lob:
+            non_contextual_creation: true
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+server:
+  port: 8080
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:local-dev-secret-key-minimum-32-chars-long}
+    expiration-ms: 86400000
+  openai:
+    api-key: ${OPENAI_API_KEY}
+    base-url: https://api.openai.com/v1
+  email:
+    from: programtests120@gmail.com
+    daily-send-limit: 10
+  frontend:
+    url: http://localhost:5173
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    com.jobcrm: DEBUG
+    org.springframework.security: INFO
+    org.flywaydb: INFO

@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: ankane/pgvector:latest        # postgres + pgvector extension bundled
+    container_name: jobcrm-postgres
+    environment:
+      POSTGRES_USER: jobcrm
+      POSTGRES_PASSWORD: jobcrm_pass
+      POSTGRES_DB: jobcrm_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # runs on first boot
+
+  redis:
+    image: redis:7-alpine
+    container_name: jobcrm-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
