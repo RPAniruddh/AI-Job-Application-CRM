@@ -1,6 +1,7 @@
 # ── Parent ──────────────────────────────────────
 /.metadata/
 .env
+.sonarlint/
 
 # ── Spring Boot Backend ──────────────────────────
 HELP.md
