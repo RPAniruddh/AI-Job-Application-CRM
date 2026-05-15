@@ -7,9 +7,47 @@
 html, body {
   margin: 0;
   padding: 0;
-  height: 100%;
 }
 
-#root {
-  height: 100%;
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Breadcrumb */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 32px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.bc-link {
+  color: var(--ink-mute);
+  text-decoration: none;
+  transition: color .15s ease;
+}
+
+.bc-link:hover { color: var(--ink); }
+
+.bc-sep {
+  color: var(--ink-ghost);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.bc-current {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+@media (max-width: 640px) {
+  .breadcrumb { padding: 8px 20px; }
 }

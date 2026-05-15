@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { login } from '../api';
 import '../styles/LoginPage.css';
@@ -10,7 +10,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { loginUser } = useAuth();
+  const { loginUser, user } = useAuth();
+  if (user) return <Navigate to="/" replace />;
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {

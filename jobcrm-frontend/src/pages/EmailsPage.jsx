@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { getEmails, updateEmail, sendEmail } from '../api';
 import { getInitials } from '../utils/applicationUtils';
 import '../styles/EmailsPage.css';
+import Breadcrumb from '../components/common/Breadcrumb';
 
 export default function EmailsPage() {
   const [emails, setEmails] = useState([]);
@@ -13,6 +14,7 @@ export default function EmailsPage() {
   const [sendModalId, setSendModalId] = useState(null);
   const [recipientEmail, setRecipientEmail] = useState('');
   const [sending, setSending] = useState(false);
+  const [sendSuccess, setSendSuccess] = useState(false);
   const [filter, setFilter] = useState('all');
   const { user, logoutUser } = useAuth();
 
@@ -57,11 +59,27 @@ export default function EmailsPage() {
     setSending(true);
     try {
       const res = await sendEmail(sendModalId, recipientEmail);
-      setEmails(prev => prev.map(em => em.id === sendModalId ? res.data : em));
-      setSendModalId(null);
-      setRecipientEmail('');
+      setEmails(prev =>
+        prev.map(em => em.id === sendModalId
+          ? { ...em, status: 'SENT', sentAt: res.data.sentAt || new Date().toISOString() }
+          : em
+        )
+      );
+      setSendSuccess(true);
+      setTimeout(() => {
+        setSendModalId(null);
+        setRecipientEmail('');
+        setOpenId(null);
+        setSendSuccess(false);
+      }, 1500);
     } catch (err) {
       console.error('Failed to send email', err);
+      setEmails(prev =>
+        prev.map(em => em.id === sendModalId
+          ? { ...em, status: 'FAILED' }
+          : em
+        )
+      );
     } finally {
       setSending(false);
     }
@@ -86,6 +104,14 @@ export default function EmailsPage() {
       <nav className="nav">
         <div className="brand">Job<b>CRM</b><span className="dot"></span></div>
         <div className="nav-right">
+          <Link to="/" className="nav-link">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="5" height="18" rx="1"/>
+              <rect x="10" y="3" width="5" height="12" rx="1"/>
+              <rect x="17" y="3" width="5" height="8" rx="1"/>
+            </svg>
+            Pipeline
+          </Link>
           <Link to="/emails" className="nav-link active">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>
@@ -104,12 +130,11 @@ export default function EmailsPage() {
           <div className="nav-divider"></div>
           <button className="avatar-btn" onClick={logoutUser}>
             <span className="avatar">{getInitials(user?.fullName)}</span>
-            <svg className="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m6 9 6 6 6-6"/>
-            </svg>
+            Logout
           </button>
         </div>
       </nav>
+      <Breadcrumb />
 
       {/* Page header */}
       <header className="page-head">
@@ -273,26 +298,32 @@ export default function EmailsPage() {
 
       {/* Send modal */}
       {sendModalId && (
-        <div className="modal-overlay" onClick={() => setSendModalId(null)}>
+        <div className="modal-overlay" onClick={sendSuccess ? undefined : () => setSendModalId(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h2>Send email</h2>
-            <form onSubmit={handleSend}>
-              <div className="modal-field">
-                <label>Recipient email</label>
-                <input
-                  type="email" required
-                  placeholder="recruiter@company.com"
-                  value={recipientEmail}
-                  onChange={e => setRecipientEmail(e.target.value)}
-                />
-              </div>
-              <div className="modal-actions">
-                <button type="button" className="btn-cancel" onClick={() => setSendModalId(null)}>Cancel</button>
-                <button type="submit" className="btn-submit" disabled={sending}>
-                  {sending ? 'Sending...' : 'Send'}
-                </button>
-              </div>
-            </form>
+            {sendSuccess ? (
+              <p style={{ textAlign: 'center', color: 'var(--sent-ink)', fontWeight: 500, padding: '16px 0' }}>
+                Email sent successfully ✓
+              </p>
+            ) : (
+              <form onSubmit={handleSend}>
+                <div className="modal-field">
+                  <label>Recipient email</label>
+                  <input
+                    type="email" required
+                    placeholder="recruiter@company.com"
+                    value={recipientEmail}
+                    onChange={e => setRecipientEmail(e.target.value)}
+                  />
+                </div>
+                <div className="modal-actions">
+                  <button type="button" className="btn-cancel" onClick={() => setSendModalId(null)}>Cancel</button>
+                  <button type="submit" className="btn-submit" disabled={sending}>
+                    {sending ? 'Sending...' : 'Send'}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

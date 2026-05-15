@@ -10,26 +10,11 @@
   --blue-soft: #404040;
 }
 
-*, *::before, *::after { box-sizing: border-box; }
 
-html, body {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-}
 
 body {
   background: var(--bg);
   color: var(--ink);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-weight: 400;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-#root {
-  height: 100%;
-  background: var(--bg);
 }
 
 body::before {
@@ -65,7 +50,7 @@ body::before {
 
 .shell {
   position: relative;
-  height: 100%;
+  height: 100vh;
   display: grid;
   grid-template-rows: auto 1fr auto;
   padding: 36px 40px;

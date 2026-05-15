@@ -2,9 +2,14 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useAuth } from '../context/AuthContext';
-import { getApplications, createApplication, updateStage, deleteApplication } from '../api';
+import { getApplications, createApplication, updateStage, deleteApplication, uploadResume, scoreApplication } from '../api';
 import { STAGES, STAGE_LABELS, getMatchClass, isMuted, getInitials } from '../utils/applicationUtils';
 import '../styles/KanbanPage.css';
+import * as pdfjsLib from 'pdfjs-dist';
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).href;
 
 export default function KanbanPage() {
   const [applications, setApplications] = useState([]);
@@ -13,6 +18,11 @@ export default function KanbanPage() {
   const [form, setForm] = useState({
     company: '', roleTitle: '', jobUrl: '', appliedDate: '', notes: '', rawDescription: ''
   });
+  const [scoringIds, setScoringIds] = useState(new Set());
+  const [showResumeModal, setShowResumeModal] = useState(false);
+  const [resumeFileName, setResumeFileName] = useState('');
+  const [resumeStatus, setResumeStatus] = useState('idle'); // idle | extracting | uploading | success | error
+  const [resumeError, setResumeError] = useState('');
   const { user, logoutUser } = useAuth();
 
   useEffect(() => {
@@ -32,13 +42,12 @@ export default function KanbanPage() {
     const { destination, source, draggableId } = result;
     if (!destination) return;
     if (destination.droppableId === source.droppableId) return;
-
     const newStage = destination.droppableId;
-
     setApplications(prev =>
-      prev.map(app => app.id === draggableId ? { ...app, stage: newStage } : app)
+      prev.map(app =>
+        app.id === draggableId ? { ...app, stage: newStage } : app
+      )
     );
-
     try {
       await updateStage(draggableId, newStage);
     } catch (err) {
@@ -51,14 +60,29 @@ export default function KanbanPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await createApplication(form);
+      const res = await createApplication(form);
+      setApplications(prev => [...prev, res.data]);
       setShowModal(false);
       setForm({ company: '', roleTitle: '', jobUrl: '', appliedDate: '', notes: '', rawDescription: '' });
-      fetchApplications();
     } catch (err) {
       console.error('Failed to create application', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleScore = async (id, e) => {
+    e.stopPropagation();
+    setScoringIds(prev => new Set(prev).add(id));
+    try {
+      const res = await scoreApplication(id);
+      setApplications(prev =>
+        prev.map(app => app.id === id ? { ...app, fitScore: res.data.fitScore } : app)
+      );
+    } catch (err) {
+      console.error('Failed to score application', err);
+    } finally {
+      setScoringIds(prev => { const next = new Set(prev); next.delete(id); return next; });
     }
   };
 
@@ -73,16 +97,62 @@ export default function KanbanPage() {
     }
   };
 
+  const closeResumeModal = () => {
+    setShowResumeModal(false);
+    setResumeFileName('');
+    setResumeStatus('idle');
+    setResumeError('');
+  };
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setResumeFileName(file.name);
+    setResumeError('');
+    setResumeStatus('extracting');
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const pages = [];
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        pages.push(content.items.map(item => item.str).join(' '));
+      }
+      const extractedText = pages.join('\n\n');
+
+      setResumeStatus('uploading');
+      await uploadResume(extractedText);
+
+      setResumeStatus('success');
+      setTimeout(closeResumeModal, 2000);
+    } catch (err) {
+      console.error('Resume processing failed', err);
+      setResumeError(err.message || 'Failed to process resume. Please try again.');
+      setResumeStatus('error');
+    }
+  };
+
   const appsByStage = (stage) => applications.filter(a => a.stage === stage);
 
   return (
-    <div className="app">
+    <div className="app" style={{ height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div className="deco" aria-hidden="true">03</div>
 
       {/* Navbar */}
       <nav className="nav">
         <div className="brand">Job<b>CRM</b><span className="dot"></span></div>
         <div className="nav-right">
+          <Link to="/" className="nav-link active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="5" height="18" rx="1"/>
+              <rect x="10" y="3" width="5" height="12" rx="1"/>
+              <rect x="17" y="3" width="5" height="8" rx="1"/>
+            </svg>
+            Pipeline
+          </Link>
           <Link to="/emails" className="nav-link">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>
@@ -101,13 +171,10 @@ export default function KanbanPage() {
           <div className="nav-divider"></div>
           <button className="avatar-btn" onClick={logoutUser}>
             <span className="avatar">{getInitials(user?.fullName)}</span>
-            <svg className="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m6 9 6 6 6-6"/>
-            </svg>
+            Logout
           </button>
         </div>
       </nav>
-
       {/* Page header */}
       <header className="page-head">
         <div className="titles">
@@ -127,6 +194,14 @@ export default function KanbanPage() {
               <path d="M7 4v16"/><path d="m3 8 4-4 4 4"/><path d="M17 20V4"/><path d="m13 16 4 4 4-4"/>
             </svg>
             Sort
+          </button>
+          <button className="btn ghost" type="button" onClick={() => setShowResumeModal(true)}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <path d="M12 18v-6"/><path d="M9 15l3-3 3 3"/>
+            </svg>
+            Upload Resume
           </button>
           <button className="btn primary" onClick={() => setShowModal(true)}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -166,7 +241,7 @@ export default function KanbanPage() {
                       {...provided.droppableProps}
                     >
                       {appsByStage(stage).map((app, index) => (
-                        <Draggable key={app.id} draggableId={app.id} index={index}>
+                        <Draggable key={app.id} draggableId={String(app.id)} index={index}>
                           {(provided, snapshot) => (
                             <article
                               className={`card ${isMuted(stage) ? 'muted' : ''}`}
@@ -183,15 +258,33 @@ export default function KanbanPage() {
                                   <span className="logo">{app.company[0].toUpperCase()}</span>
                                   <span className="company-name">{app.company}</span>
                                 </div>
-                                <button
-                                  className="menu-btn"
-                                  onClick={(e) => handleDelete(app.id, e)}
-                                  aria-label="Delete"
-                                >
-                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M3 6h18"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/>
-                                  </svg>
-                                </button>
+                                <div className="card-actions">
+                                  <button
+                                    className="menu-btn"
+                                    onClick={(e) => handleScore(app.id, e)}
+                                    disabled={scoringIds.has(app.id)}
+                                    aria-label="Score"
+                                  >
+                                    {scoringIds.has(app.id) ? (
+                                      <svg style={{ animation: 'btn-spin .7s linear infinite' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                        <path d="M12 2a10 10 0 0 1 7.07 2.93"/>
+                                      </svg>
+                                    ) : (
+                                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M12 2 14.5 8 21 9l-5 4.5L17.5 21 12 17 6.5 21 8 13.5 3 9l6.5-1L12 2z"/>
+                                      </svg>
+                                    )}
+                                  </button>
+                                  <button
+                                    className="menu-btn"
+                                    onClick={(e) => handleDelete(app.id, e)}
+                                    aria-label="Delete"
+                                  >
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M3 6h18"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/>
+                                    </svg>
+                                  </button>
+                                </div>
                               </div>
                               <p className="role">{app.roleTitle}</p>
                               <div className="card-meta">
@@ -273,6 +366,54 @@ export default function KanbanPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Resume Upload Modal */}
+      {showResumeModal && (
+        <div
+          className="modal-overlay"
+          onClick={resumeStatus !== 'extracting' && resumeStatus !== 'uploading' ? closeResumeModal : undefined}
+        >
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h2>Upload Resume</h2>
+
+            {resumeStatus === 'success' && (
+              <p style={{ color: 'var(--offer)', fontWeight: 500, margin: '8px 0 24px' }}>
+                Resume saved successfully
+              </p>
+            )}
+
+            {(resumeStatus === 'extracting' || resumeStatus === 'uploading') && (
+              <div className="resume-processing">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M12 2a10 10 0 0 1 7.07 2.93"/>
+                </svg>
+                <span>
+                  <strong>{resumeFileName}</strong><br />
+                  {resumeStatus === 'extracting' ? 'Extracting text…' : 'Saving resume…'}
+                </span>
+              </div>
+            )}
+
+            {(resumeStatus === 'idle' || resumeStatus === 'error') && (
+              <>
+                <label className="file-drop">
+                  <input type="file" accept=".pdf" onChange={handleFileSelect} />
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <path d="M12 18v-6"/><path d="M9 15l3-3 3 3"/>
+                  </svg>
+                  Choose PDF file
+                </label>
+                {resumeError && <div className="resume-error">{resumeError}</div>}
+                <div className="modal-actions">
+                  <button type="button" className="btn-cancel" onClick={closeResumeModal}>Cancel</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

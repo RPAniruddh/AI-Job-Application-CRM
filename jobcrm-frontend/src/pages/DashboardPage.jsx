@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { getApplications } from '../api';
 import { getInitials } from '../utils/applicationUtils';
 import '../styles/DashboardPage.css';
+import Breadcrumb from '../components/common/Breadcrumb';
 
 export default function DashboardPage() {
   const [applications, setApplications] = useState([]);
@@ -74,6 +75,14 @@ export default function DashboardPage() {
       <nav className="nav">
         <div className="brand">Job<b>CRM</b><span className="dot"></span></div>
         <div className="nav-right">
+          <Link to="/" className="nav-link">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="5" height="18" rx="1"/>
+              <rect x="10" y="3" width="5" height="12" rx="1"/>
+              <rect x="17" y="3" width="5" height="8" rx="1"/>
+            </svg>
+            Pipeline
+          </Link>
           <Link to="/emails" className="nav-link">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>
@@ -92,12 +101,11 @@ export default function DashboardPage() {
           <div className="nav-divider"></div>
           <button className="avatar-btn" onClick={logoutUser}>
             <span className="avatar">{getInitials(user?.fullName)}</span>
-            <svg className="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m6 9 6 6 6-6"/>
-            </svg>
+            Logout
           </button>
         </div>
       </nav>
+      <Breadcrumb />
 
       <div className="page">
 
