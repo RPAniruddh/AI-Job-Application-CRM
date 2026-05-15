@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { getApplications, createApplication, updateStage, deleteApplication, uploadResume, scoreApplication } from '../api';
 import { STAGES, STAGE_LABELS, getMatchClass, isMuted, getInitials } from '../utils/applicationUtils';
 import '../styles/KanbanPage.css';
+import { useEmailCount } from '../hooks/useEmailCount';
 import * as pdfjsLib from 'pdfjs-dist';
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -19,11 +20,13 @@ export default function KanbanPage() {
     company: '', roleTitle: '', jobUrl: '', appliedDate: '', notes: '', rawDescription: ''
   });
   const [scoringIds, setScoringIds] = useState(new Set());
+  const [deleteId, setDeleteId] = useState(null);
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [resumeFileName, setResumeFileName] = useState('');
   const [resumeStatus, setResumeStatus] = useState('idle'); // idle | extracting | uploading | success | error
   const [resumeError, setResumeError] = useState('');
   const { user, logoutUser } = useAuth();
+  const draftCount = useEmailCount();
 
   useEffect(() => {
     fetchApplications();
@@ -86,14 +89,19 @@ export default function KanbanPage() {
     }
   };
 
-  const handleDelete = async (id, e) => {
+  const handleDelete = (id, e) => {
     e.stopPropagation();
-    if (!window.confirm('Delete this application?')) return;
+    setDeleteId(id);
+  };
+
+  const confirmDelete = async () => {
     try {
-      await deleteApplication(id);
-      setApplications(prev => prev.filter(app => app.id !== id));
+      await deleteApplication(deleteId);
+      setApplications(prev => prev.filter(app => app.id !== deleteId));
+      setDeleteId(null);
     } catch (err) {
       console.error('Failed to delete', err);
+      setDeleteId(null);
     }
   };
 
@@ -158,6 +166,16 @@ export default function KanbanPage() {
               <rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>
             </svg>
             Emails
+            {draftCount > 0 && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                minWidth: '16px', height: '16px', padding: '0 4px', borderRadius: '999px',
+                background: 'var(--ink)', color: 'var(--bg)', fontSize: '10px',
+                fontWeight: '600', lineHeight: '1', marginLeft: '2px',
+              }}>
+                {draftCount}
+              </span>
+            )}
           </Link>
           <Link to="/dashboard" className="nav-link">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -345,6 +363,7 @@ export default function KanbanPage() {
               <div className="modal-field">
                 <label>Applied Date</label>
                 <input type="date" value={form.appliedDate}
+                  max={new Date().toISOString().split('T')[0]}
                   onChange={e => setForm({ ...form, appliedDate: e.target.value })} />
               </div>
               <div className="modal-field">
@@ -366,6 +385,28 @@ export default function KanbanPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteId && (
+        <div className="modal-overlay" onClick={() => setDeleteId(null)}>
+          <div className="modal" style={{ maxWidth: '360px' }} onClick={e => e.stopPropagation()}>
+            <h2 style={{ fontSize: '22px', marginBottom: '10px' }}>Delete application?</h2>
+            <p style={{ fontSize: '14px', color: 'var(--ink-mute)', margin: '0 0 28px' }}>
+              This will permanently remove the application and all associated workflow tasks and email drafts.
+            </p>
+            <div className="modal-actions">
+              <button className="btn-cancel" onClick={() => setDeleteId(null)}>Cancel</button>
+              <button
+                className="btn-submit"
+                style={{ background: 'oklch(62% 0.13 25)', borderColor: 'oklch(62% 0.13 25)' }}
+                onClick={confirmDelete}
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

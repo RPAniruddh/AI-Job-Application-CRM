@@ -20,6 +20,7 @@ export const deleteContact = (id) => api.delete(`/contacts/${id}`);
 
 // ── AI ────────────────────────────────────────────
 export const uploadResume = (resumeText) => api.post('/ai/resume', { resumeText });
+export const getResume = () => api.get('/ai/resume');
 export const parseJd = (description) => api.post('/ai/parse-jd', { description });
 export const scoreApplication = (id) => api.post(`/ai/score/${id}`);
 

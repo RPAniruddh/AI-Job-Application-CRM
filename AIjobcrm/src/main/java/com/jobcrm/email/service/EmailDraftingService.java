@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jobcrm.ai.client.OpenAiClient;
 import com.jobcrm.ai.dto.ChatRequest;
+import com.jobcrm.ai.repository.UserResumeRepository;
 import com.jobcrm.application.model.JobApplication;
 import com.jobcrm.email.model.EmailDraft;
 import com.jobcrm.email.repository.EmailDraftRepository;
@@ -22,128 +23,25 @@ public class EmailDraftingService {
     private final OpenAiClient openAiClient;
     private final EmailDraftRepository emailDraftRepository;
     private final ObjectMapper objectMapper;
+    private final UserResumeRepository userResumeRepository;
 
     public EmailDraftingService(OpenAiClient openAiClient,
                                 EmailDraftRepository emailDraftRepository,
-                                ObjectMapper objectMapper) {
+                                ObjectMapper objectMapper,
+                                UserResumeRepository userResumeRepository) {
         this.openAiClient = openAiClient;
         this.emailDraftRepository = emailDraftRepository;
         this.objectMapper = objectMapper;
+        this.userResumeRepository = userResumeRepository;
     }
 
     public EmailDraft draftFollowUpEmail(JobApplication application) {
         log.info("Drafting follow-up email for application: {}", application.getId());
-
         String prompt = buildFollowUpPrompt(application);
-        ChatRequest chatRequest = new ChatRequest(
-        	    "gpt-4o-mini",
-        	    List.of(new ChatRequest.Message("user", prompt)),
-        	    0.7
-        	);
-        	String rawResponse = openAiClient.chat(chatRequest).getFirstContent();
-        Map<String, String> parsed = parseEmailResponse(rawResponse);
-
-        EmailDraft draft = EmailDraft.builder()
-                .user(application.getUser())
-                .application(application)
-                .subject(parsed.get("subject"))
-                .body(parsed.get("body"))
-                .build();
-
-        return emailDraftRepository.save(draft);
-    }
-
-    public EmailDraft draftThankYouEmail(JobApplication application) {
-        log.info("Drafting thank-you email for application: {}", application.getId());
-
-        String prompt = buildThankYouPrompt(application);
-        ChatRequest chatRequest = new ChatRequest(
-        	    "gpt-4o-mini",
-        	    List.of(new ChatRequest.Message("user", prompt)),
-        	    0.7
-        	);
-        	String rawResponse = openAiClient.chat(chatRequest).getFirstContent();
-        Map<String, String> parsed = parseEmailResponse(rawResponse);
-
-        EmailDraft draft = EmailDraft.builder()
-                .user(application.getUser())
-                .application(application)
-                .subject(parsed.get("subject"))
-                .body(parsed.get("body"))
-                .build();
-
-        return emailDraftRepository.save(draft);
-    }
-
-    private String buildFollowUpPrompt(JobApplication application) {
-        return String.format("""
-                You are %s, a professional job seeker writing a follow-up email.
-                Sign the email with your real name: %s
-
-                Job Details:
-                - Applicant Name: %s
-                - Company: %s
-                - Role: %s
-                - Applied: %s
-                - Notes: %s
-
-                Write a concise, professional follow-up email checking on the application status.
-                Keep it under 150 words. Be polite and enthusiastic but not desperate.
-                Sign off with the applicant's real name.
-
-                Respond ONLY with a JSON object in this exact format, no other text:
-                {
-                    "subject": "email subject here",
-                    "body": "email body here"
-                }
-                """,
-                application.getUser().getFullName(),
-                application.getUser().getFullName(),
-                application.getUser().getFullName(),
-                application.getCompany(),
-                application.getRoleTitle(),
-                application.getAppliedDate(),
-                application.getNotes() != null ? application.getNotes() : "N/A"
-        );
-    }
-
-    private String buildThankYouPrompt(JobApplication application) {
-        return String.format("""
-                You are %s, a professional job seeker writing a thank-you email after an interview.
-                Sign the email with your real name: %s
-
-                Job Details:
-                - Applicant Name: %s
-                - Company: %s
-                - Role: %s
-                - Notes: %s
-
-                Write a concise, professional thank-you email after an interview.
-                Keep it under 150 words. Express genuine gratitude and reiterate interest.
-                Sign off with the applicant's real name.
-
-                Respond ONLY with a JSON object in this exact format, no other text:
-                {
-                    "subject": "email subject here",
-                    "body": "email body here"
-                }
-                """,
-                application.getUser().getFullName(),
-                application.getUser().getFullName(),
-                application.getUser().getFullName(),
-                application.getCompany(),
-                application.getRoleTitle(),
-                application.getNotes() != null ? application.getNotes() : "N/A"
-        );
-    }
-
-    public EmailDraft draftConfirmationEmail(JobApplication application) {
-        log.info("Drafting confirmation email for application: {}", application.getId());
-        String prompt = buildConfirmationPrompt(application);
         ChatRequest chatRequest = new ChatRequest(
             "gpt-4o-mini",
             List.of(new ChatRequest.Message("user", prompt)),
-            0.7
+            0.9
         );
         String rawResponse = openAiClient.chat(chatRequest).getFirstContent();
         Map<String, String> parsed = parseEmailResponse(rawResponse);
@@ -156,32 +54,160 @@ public class EmailDraftingService {
         return emailDraftRepository.save(draft);
     }
 
-    private String buildConfirmationPrompt(JobApplication application) {
-        return String.format("""
-                You are %s, a professional job seeker writing a confirmation email to a recruiter.
-                You have just submitted your application and want to confirm it and express enthusiasm.
+    public EmailDraft draftThankYouEmail(JobApplication application) {
+        log.info("Drafting thank-you email for application: {}", application.getId());
+        String prompt = buildThankYouPrompt(application);
+        ChatRequest chatRequest = new ChatRequest(
+            "gpt-4o-mini",
+            List.of(new ChatRequest.Message("user", prompt)),
+            0.9
+        );
+        String rawResponse = openAiClient.chat(chatRequest).getFirstContent();
+        Map<String, String> parsed = parseEmailResponse(rawResponse);
+        EmailDraft draft = EmailDraft.builder()
+                .user(application.getUser())
+                .application(application)
+                .subject(parsed.get("subject"))
+                .body(parsed.get("body"))
+                .build();
+        return emailDraftRepository.save(draft);
+    }
 
-                Job Details:
+    public EmailDraft draftConfirmationEmail(JobApplication application) {
+        log.info("Drafting confirmation email for application: {}", application.getId());
+        String prompt = buildConfirmationPrompt(application);
+        ChatRequest chatRequest = new ChatRequest(
+            "gpt-4o-mini",
+            List.of(new ChatRequest.Message("user", prompt)),
+            0.9
+        );
+        String rawResponse = openAiClient.chat(chatRequest).getFirstContent();
+        Map<String, String> parsed = parseEmailResponse(rawResponse);
+        EmailDraft draft = EmailDraft.builder()
+                .user(application.getUser())
+                .application(application)
+                .subject(parsed.get("subject"))
+                .body(parsed.get("body"))
+                .build();
+        return emailDraftRepository.save(draft);
+    }
+
+    private String getResumeText(JobApplication application) {
+        return userResumeRepository
+            .findTopByUserIdOrderByCreatedAtDesc(application.getUser().getId())
+            .map(resume -> resume.getResumeText().substring(0, Math.min(resume.getResumeText().length(), 800)))
+            .orElse("Experienced software engineer with backend development skills.");
+    }
+
+    private String buildFollowUpPrompt(JobApplication application) {
+        String resumeSnippet = getResumeText(application);
+        String jdSnippet = application.getRawDescription() != null
+            ? application.getRawDescription().substring(0, Math.min(application.getRawDescription().length(), 600))
+            : "No description available";
+
+        return String.format("""
+                You are %s, writing a follow-up email after applying for a job.
+
+                Your background (from resume):
+                %s
+
+                Job you applied for:
                 - Company: %s
                 - Role: %s
-                - Applied: %s
-                - Notes: %s
+                - Applied on: %s
+                - Job description excerpt: %s
 
-                Write a brief, professional confirmation email (under 120 words) letting the recruiter
-                know you have applied, expressing genuine enthusiasm, and inviting them to reach out.
-                Do not use placeholders — sign with your real name: %s
+                Write a highly personalized follow-up email (under 150 words) that:
+                - References 1-2 specific skills from YOUR background that match THIS specific role
+                - Mentions something specific about the company or role (not generic)
+                - Sounds natural and human, not like a template
+                - Signs off with your real name: %s
+                - Does NOT use any placeholder text like [Your Name] or [Company]
 
-                Respond ONLY with a JSON object in this exact format, no other text:
-                {
-                    "subject": "email subject here",
-                    "body": "email body here"
-                }
+                Respond ONLY with valid JSON, no markdown, no backticks:
+                {"subject": "...", "body": "..."}
                 """,
                 application.getUser().getFullName(),
+                resumeSnippet,
                 application.getCompany(),
                 application.getRoleTitle(),
                 application.getAppliedDate(),
-                application.getNotes() != null ? application.getNotes() : "N/A",
+                jdSnippet,
+                application.getUser().getFullName()
+        );
+    }
+
+    private String buildThankYouPrompt(JobApplication application) {
+        String resumeSnippet = getResumeText(application);
+        String jdSnippet = application.getRawDescription() != null
+            ? application.getRawDescription().substring(0, Math.min(application.getRawDescription().length(), 600))
+            : "No description available";
+
+        return String.format("""
+                You are %s, writing a thank-you email after a job interview.
+
+                Your background (from resume):
+                %s
+
+                Job you interviewed for:
+                - Company: %s
+                - Role: %s
+                - Job description excerpt: %s
+
+                Write a highly personalized thank-you email (under 150 words) that:
+                - References something specific discussed or relevant to THIS role
+                - Mentions 1 specific skill or experience from YOUR background relevant to this company
+                - Sounds warm and genuine, not copy-paste
+                - Signs off with your real name: %s
+                - Does NOT use any placeholder text
+
+                Respond ONLY with valid JSON, no markdown, no backticks:
+                {"subject": "...", "body": "..."}
+                """,
+                application.getUser().getFullName(),
+                resumeSnippet,
+                application.getCompany(),
+                application.getRoleTitle(),
+                jdSnippet,
+                application.getUser().getFullName()
+        );
+    }
+
+    private String buildConfirmationPrompt(JobApplication application) {
+        String resumeSnippet = getResumeText(application);
+        String jdSnippet = application.getRawDescription() != null
+            ? application.getRawDescription().substring(0, Math.min(application.getRawDescription().length(), 600))
+            : "No description available";
+
+        return String.format("""
+                You are %s, writing a confirmation email to a recruiter after submitting a job application.
+
+                Your background (from resume):
+                %s
+
+                Job you just applied for:
+                - Company: %s
+                - Role: %s
+                - Applied on: %s
+                - Job description excerpt: %s
+
+                Write a brief, highly personalized confirmation email (under 120 words) that:
+                - Confirms you have submitted your application
+                - Highlights 1 specific skill or experience from YOUR background that directly matches this role
+                - Expresses genuine enthusiasm for something specific about this company or position
+                - Invites the recruiter to reach out with any questions
+                - Signs off with your real name: %s
+                - Does NOT use any placeholder text like [Your Name] or [Company]
+
+                Respond ONLY with valid JSON, no markdown, no backticks:
+                {"subject": "...", "body": "..."}
+                """,
+                application.getUser().getFullName(),
+                resumeSnippet,
+                application.getCompany(),
+                application.getRoleTitle(),
+                application.getAppliedDate(),
+                jdSnippet,
                 application.getUser().getFullName()
         );
     }

@@ -1,9 +1,12 @@
 package com.jobcrm.ai.controller;
 
 import com.jobcrm.ai.dto.ParsedJobDescription;
+import com.jobcrm.ai.repository.UserResumeRepository;
 import com.jobcrm.ai.service.FitScoringService;
 import com.jobcrm.ai.service.JdParserService;
+import com.jobcrm.auth.model.User;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -15,11 +18,14 @@ public class AiController {
 
     private final JdParserService jdParserService;
     private final FitScoringService fitScoringService;
+    private final UserResumeRepository userResumeRepository;
 
     public AiController(JdParserService jdParserService,
-                        FitScoringService fitScoringService) {
+                        FitScoringService fitScoringService,
+                        UserResumeRepository userResumeRepository) {
         this.jdParserService = jdParserService;
         this.fitScoringService = fitScoringService;
+        this.userResumeRepository = userResumeRepository;
     }
 
     // Parse a raw job description into structured data

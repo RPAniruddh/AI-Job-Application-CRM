@@ -10,4 +10,5 @@ import java.util.UUID;
 @Repository
 public interface UserResumeRepository extends JpaRepository<UserResume, UUID> {
     Optional<UserResume> findByUserId(UUID userId);
+    Optional<UserResume> findTopByUserIdOrderByCreatedAtDesc(UUID userId);
 }

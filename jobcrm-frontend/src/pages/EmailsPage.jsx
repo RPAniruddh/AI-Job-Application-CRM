@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { useEmailCount } from '../hooks/useEmailCount';
 import { useAuth } from '../context/AuthContext';
 import { getEmails, updateEmail, sendEmail } from '../api';
 import { getInitials } from '../utils/applicationUtils';
@@ -17,6 +18,9 @@ export default function EmailsPage() {
   const [sendSuccess, setSendSuccess] = useState(false);
   const [filter, setFilter] = useState('all');
   const { user, logoutUser } = useAuth();
+  const location = useLocation();
+  const rawDraftCount = useEmailCount();
+  const draftCount = location.pathname === '/emails' ? 0 : rawDraftCount;
 
   useEffect(() => {
     fetchEmails();
@@ -117,6 +121,16 @@ export default function EmailsPage() {
               <rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>
             </svg>
             Emails
+            {draftCount > 0 && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                minWidth: '16px', height: '16px', padding: '0 4px', borderRadius: '999px',
+                background: 'var(--ink)', color: 'var(--bg)', fontSize: '10px',
+                fontWeight: '600', lineHeight: '1', marginLeft: '2px',
+              }}>
+                {draftCount}
+              </span>
+            )}
           </Link>
           <Link to="/dashboard" className="nav-link">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
