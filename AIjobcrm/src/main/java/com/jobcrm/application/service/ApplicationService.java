@@ -141,6 +141,14 @@ public class ApplicationService {
 	                    .payload("{\"message\": \"Follow up on application\"}")
 	                    .build();
 	            workflowTaskRepository.save(followUp);
+
+	            WorkflowTask confirmation = WorkflowTask.builder()
+	                    .application(application)
+	                    .taskType(WorkflowTaskType.SEND_CONFIRMATION)
+	                    .scheduledFor(LocalDateTime.now().plusSeconds(10))
+	                    .payload("{\"message\": \"Application confirmation\"}")
+	                    .build();
+	            workflowTaskRepository.save(confirmation);
 	            break;
 
 	        case INTERVIEWING:

@@ -77,23 +77,29 @@ public class EmailDraftingService {
 
     private String buildFollowUpPrompt(JobApplication application) {
         return String.format("""
-                You are a professional job seeker writing a follow-up email.
-                
+                You are %s, a professional job seeker writing a follow-up email.
+                Sign the email with your real name: %s
+
                 Job Details:
+                - Applicant Name: %s
                 - Company: %s
                 - Role: %s
                 - Applied: %s
                 - Notes: %s
-                
+
                 Write a concise, professional follow-up email checking on the application status.
                 Keep it under 150 words. Be polite and enthusiastic but not desperate.
-                
+                Sign off with the applicant's real name.
+
                 Respond ONLY with a JSON object in this exact format, no other text:
                 {
                     "subject": "email subject here",
                     "body": "email body here"
                 }
                 """,
+                application.getUser().getFullName(),
+                application.getUser().getFullName(),
+                application.getUser().getFullName(),
                 application.getCompany(),
                 application.getRoleTitle(),
                 application.getAppliedDate(),
@@ -103,25 +109,80 @@ public class EmailDraftingService {
 
     private String buildThankYouPrompt(JobApplication application) {
         return String.format("""
-                You are a professional job seeker writing a thank-you email after an interview.
-                
+                You are %s, a professional job seeker writing a thank-you email after an interview.
+                Sign the email with your real name: %s
+
                 Job Details:
+                - Applicant Name: %s
                 - Company: %s
                 - Role: %s
                 - Notes: %s
-                
+
                 Write a concise, professional thank-you email after an interview.
                 Keep it under 150 words. Express genuine gratitude and reiterate interest.
-                
+                Sign off with the applicant's real name.
+
                 Respond ONLY with a JSON object in this exact format, no other text:
                 {
                     "subject": "email subject here",
                     "body": "email body here"
                 }
                 """,
+                application.getUser().getFullName(),
+                application.getUser().getFullName(),
+                application.getUser().getFullName(),
                 application.getCompany(),
                 application.getRoleTitle(),
                 application.getNotes() != null ? application.getNotes() : "N/A"
+        );
+    }
+
+    public EmailDraft draftConfirmationEmail(JobApplication application) {
+        log.info("Drafting confirmation email for application: {}", application.getId());
+        String prompt = buildConfirmationPrompt(application);
+        ChatRequest chatRequest = new ChatRequest(
+            "gpt-4o-mini",
+            List.of(new ChatRequest.Message("user", prompt)),
+            0.7
+        );
+        String rawResponse = openAiClient.chat(chatRequest).getFirstContent();
+        Map<String, String> parsed = parseEmailResponse(rawResponse);
+        EmailDraft draft = EmailDraft.builder()
+                .user(application.getUser())
+                .application(application)
+                .subject(parsed.get("subject"))
+                .body(parsed.get("body"))
+                .build();
+        return emailDraftRepository.save(draft);
+    }
+
+    private String buildConfirmationPrompt(JobApplication application) {
+        return String.format("""
+                You are %s, a professional job seeker writing a confirmation email to a recruiter.
+                You have just submitted your application and want to confirm it and express enthusiasm.
+
+                Job Details:
+                - Company: %s
+                - Role: %s
+                - Applied: %s
+                - Notes: %s
+
+                Write a brief, professional confirmation email (under 120 words) letting the recruiter
+                know you have applied, expressing genuine enthusiasm, and inviting them to reach out.
+                Do not use placeholders — sign with your real name: %s
+
+                Respond ONLY with a JSON object in this exact format, no other text:
+                {
+                    "subject": "email subject here",
+                    "body": "email body here"
+                }
+                """,
+                application.getUser().getFullName(),
+                application.getCompany(),
+                application.getRoleTitle(),
+                application.getAppliedDate(),
+                application.getNotes() != null ? application.getNotes() : "N/A",
+                application.getUser().getFullName()
         );
     }
 

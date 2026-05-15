@@ -40,6 +40,10 @@ public class TaskExecutor {
         		EmailDraft draft = emailDraftingService.draftThankYouEmail(task.getApplication());
         	    log.info("DRAFT GENERATED:\nSubject: {}\nBody:\n{}", draft.getSubject(), draft.getBody());
 
+        	} else if (task.getTaskType().equals(WorkflowTaskType.SEND_CONFIRMATION.name())) {
+        		EmailDraft draft = emailDraftingService.draftConfirmationEmail(task.getApplication());
+        	    log.info("DRAFT GENERATED:\nSubject: {}\nBody:\n{}", draft.getSubject(), draft.getBody());
+
         	} else if (task.getTaskType().equals(WorkflowTaskType.CHECK_STATUS.name())) {
         	    log.info("TASK EXECUTOR: Check status reminder for application {}",
         	            task.getApplication().getId());
